@@ -3,14 +3,18 @@ const path = require('path');
 const xlsx = require('xlsx');
 const XlsxPopulate = require('xlsx-populate');
 const dotenv = require('dotenv').config();
+const { areasIess } = require('./dataAreas');
 
+// Paths excels
 const pathExcel = path.join(__dirname, '/files/inventario.xlsx');
 const pathExcelPlantilla = path.join(__dirname, '/files/plantilla.xlsx');
 
+// Lee excel
 const workBook = xlsx.readFile(pathExcel);
 let workSheets = workBook.SheetNames;
 console.log(`Iniciando la generación de reportes de la hoja ${workSheets[0]}`);
 
+// Data excel
 const workSheetData = workBook.Sheets[workSheets[0]];
 const fileData = xlsx.utils.sheet_to_json(workSheetData, {
 	header: 1,
@@ -30,14 +34,7 @@ const headers = [
 
 fileData.splice(0, 4);
 
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// Methods
 const convertToJson = async (headers, data) => {
 	const rows = [];
 
@@ -61,7 +58,9 @@ const handleDataReport = (rows, codEstancia, codEquipo) => {
 	return dataFilter;
 };
 
-const generateReportXlsx = (dataFile) => {
+const generateReportXlsx = (dataFile, title) => {
+	fs.mkdirSync(`archivosGenerados/${title}/`, { recursive: true });
+
 	// Load an existing workbook
 	for (const data of dataFile) {
 		XlsxPopulate.fromFileAsync(pathExcelPlantilla)
@@ -79,7 +78,7 @@ const generateReportXlsx = (dataFile) => {
 					{ cell: 4, value: data?.modelo },
 					{ cell: 5, value: data?.num_serie || 'S/N' },
 					{ cell: 7, value: '' },
-					{ cell: 9, value: 'CENTRO OBSTÉTRICO' },
+					{ cell: 9, value: title },
 				];
 
 				for (let index = 0; index < cantidadHojas; index++) {
@@ -89,7 +88,9 @@ const generateReportXlsx = (dataFile) => {
 				}
 
 				workbook.activeSheet(0);
-				const nameFile = `archivosGenerados/${data?.description.replace(/\//g, ' ')}.xlsx`;
+				const nameFile = `archivosGenerados/${title}/${data?.description
+					.replace(/\//g, ' ')
+					.toUpperCase()}.xlsx`;
 
 				workbook.toFileAsync(nameFile);
 			})
@@ -101,7 +102,11 @@ const generateReportXlsx = (dataFile) => {
 
 (async () => {
 	const rows = await convertToJson(headers, fileData);
-	const cooEm = handleDataReport(rows, 'CO', 'EM');
 
-	generateReportXlsx(cooEm);
+	for (const area of areasIess) {
+		const { title, codEstancia, codEquipo } = area;
+
+		const cooEm = handleDataReport(rows, codEstancia, codEquipo);
+		generateReportXlsx(cooEm, title);
+	}
 })();
